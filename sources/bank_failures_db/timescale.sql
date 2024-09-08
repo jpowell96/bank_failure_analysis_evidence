@@ -1,0 +1,1 @@
+SELECT generate_series('2000-01-01' :: TIMESTAMP, '2023-12-01' :: TIMESTAMP,'1 month' :: INTERVAL) as year_month;

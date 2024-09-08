@@ -1,0 +1,1 @@
+select * FROM bank_failures;

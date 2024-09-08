@@ -1,0 +1,7 @@
+1. For CTEs, it can be helpful to just create the different parts of the CTE as their own sql file in the folder for the data source
+2. window functions don't auto-alias a column to the name of the window funciton
+
+example: dense_rank() OVER (partition by my_column order by my_other_column) 
+was aliased to dense_rank() OVER (partition by my_column order by my_other_column) rather than dense_rank.
+
+Which may be weird to catch.
