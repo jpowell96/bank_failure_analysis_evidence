@@ -140,23 +140,8 @@ updated our JOIN condition to be based on matching years.
 
 ## Analyzing the Data
 
-I saved the queries as materialized views and ran a few queries on the data. I used a materialized view because I know that the data is for a fixed time period and will not need to be refreshed. A temp table, or even writing to an actual table would work as well.
 
-```sql
-create materialized view bank_failures_by_month as (
-with series as (SELECT
-generate_series('2000-01-01', '2023-12-01','1 month'::interval) as timescale)
-SELECT
-  EXTRACT('YEAR' FROM timescale) as closing_year, 
-  EXTRACT('MONTH' FROM timescale) as closing_month, 
-  COUNT(bank_failures.closing_date) as total_failures  
-FROM series LEFT JOIN bank_failures 
-on EXTRACT('YEAR' from timescale) = EXTRACT('YEAR' from closing_date :: DATE)
-and EXTRACT('MONTH' from timescale) = EXTRACT('MONTH' from closing_date :: DATE)
-GROUP BY closing_year, closing_month
-ORDER BY closing_year, closing_month);
-```
-Here are some of the queries I ran on the dataset, and materialized view:
+Here are some of the queries I ran on the dataset:
 
 How many bank closed over the entire time period:
 ```sql total_bank_failures
@@ -210,7 +195,16 @@ on  extract('YEAR' from all_years.timescale) = ranked_state_failures_by_year.clo
 -- Some years do not have bank failures, so we include a null check to ensure they appear in the result set
 where dense_rank = 1 or dense_rank is null
 order by all_years.timescale;
+``` 
+
+```sql timescale_years
+select EXTRACT('year' from Year) as Year FROM bank_failures_db.timescale_year order by Year;
 ```
+<Dropdown
+    data={timescale_years} 
+    name=timescale_year_dropdown
+    value=Year
+/>
 
 ```sql ranked_state_failures_by_year
 with ranked_state_failures_by_year as (
@@ -221,21 +215,20 @@ with ranked_state_failures_by_year as (
 	 -- Window functions are evaluated AFTER the group by clause, so this is comparing the bank failures per state
 	 dense_rank() over (partition by extract('YEAR' from closing_date) order by  COUNT(*) desc) as dense_rank
 	from bank_failures_db.all_bank_failures bf 
+	where closing_year = '${inputs.timescale_year_dropdown.value}'
 	group by extract('YEAR' from closing_date), state
 	order by extract('YEAR' from closing_date), COUNT(*) desc)
 select 
-    extract('YEAR' from bank_failures_db.timescale_year.year) as closing_year, 
+    closing_year, 
     coalesce(state, 'N/A') as state, 
-    coalesce(state_failures_by_year, 0) as state_failures_by_year
-from bank_failures_db.timescale_year
-left join ranked_state_failures_by_year on extract('YEAR' from bank_failures_db.timescale_year.year) = ranked_state_failures_by_year.closing_year 
-where dense_rank = 1 or dense_rank is null
-order by bank_failures_db.timescale_year.year;
+    coalesce(state_failures_by_year, 0) as state_failures_by_year,
+	dense_rank
+from ranked_state_failures_by_year
+order by dense_rank, ranked_state_failures_by_year.closing_year;
 ```
 
 <DataTable data={ranked_state_failures_by_year}/>
 
-<!--TODO: Do a failures by year per state that's a bar chart you can filter by state -->
 ```sql all_states
 select distinct state as state
 from bank_failures_db.all_bank_failures
@@ -260,26 +253,12 @@ order by bank_failures_db.timescale_year.year;
     name=all_states_dropdown
     value=state
 />
-
 <BarChart
   data={failures_by_year_per_state}
   x=year
   y=bank_failures
 />
-
 <DataTable data={failures_by_year_per_state}/>
-
-
-|closing_year|state|state_failures_by_year|
-|------------|-----|----------------------|
-|2000|HI|1|
-|2000|IL|1|
-|2001|AR|1|
-|2001|OH|1|
-|2001|IL|1|
-|2001|NH|1|
-|2002|FL|2|
-|2003|WI|1|
 
 
 Which years had the most bank failures?

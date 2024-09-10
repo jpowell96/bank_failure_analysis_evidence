@@ -4,4 +4,4 @@
 example: dense_rank() OVER (partition by my_column order by my_other_column) 
 was aliased to dense_rank() OVER (partition by my_column order by my_other_column) rather than dense_rank.
 
-Which may be weird to catch.
+Was easy to catch b/c of the error messages, but wasn't expected. At least in my usual DB ide (DBeaver), column names for window functions are aliased to the window function name.
